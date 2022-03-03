@@ -46,7 +46,7 @@ def aggregate_delegations(flow_direction, timeframe='hour'):
         fetch_from = 0
 
     params = {'by': timeframe, 'from': fetch_from}
-    delegations = api_calls.fetch_delegations(params)
+    delegations = api_calls.fetch_delegations(flow_direction, params)
 
     lines_added = 0
     for delegation in delegations:
@@ -79,5 +79,6 @@ def __main__():
     aggregate_delegations('undelegations', timeframe='hour')
     return
 
-
-__main__()
+aggregate_delegations('delegations', timeframe='hour')
+aggregate_delegations('undelegations', timeframe='hour')
+#__main__()

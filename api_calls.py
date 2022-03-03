@@ -5,8 +5,7 @@ import time
 
 def fetch_validators():
     response = requests.get("https://api.cosmoscan.net/validators")
-    validator_overview = json.loads(response.text)
-    return validator_overview
+    return json.loads(response.text)
 
 
 def fetch_delegators(operator_address, params):
@@ -17,10 +16,9 @@ def fetch_delegators(operator_address, params):
         print(e)
         time.sleep(65)
         response = requests.get("https://api.cosmoscan.net/validator/" + str(operator_address) + "/delegators", params=params)
-    return response
+    return json.loads(response.text)
 
 
-def fetch_undelegations(params):
-    response = requests.get("https://api.cosmoscan.net//undelegations/volume/agg", params=params)
-    undelegations = json.loads(response.text)
-    return undelegations
+def fetch_delegations(flow_direction, params):
+    response = requests.get("https://api.cosmoscan.net/"+flow_direction+"/volume/agg", params=params)
+    return json.loads(response.text)
