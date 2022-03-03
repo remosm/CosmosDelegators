@@ -60,9 +60,9 @@ def __main__():
 
     validator_stats = validator_stats.sort_values(by=['percent_power'], ascending=False)
     validator_stats = validator_stats.reset_index(drop=True)
-    validator_stats.to_csv('all_validators.csv', index=False)
+    validator_stats.to_csv('./data/all_validators.csv', index=False)
 
-    validator_stats = validator_stats[137:140]
+    validator_stats = validator_stats[:20]
     for index, val in validator_stats.iterrows():
         print('Fetching delegator data for..', val['title'])
         aggregate_delegators(val['operator_address'], val['delegators'], operator_name=val['title'])
