@@ -79,4 +79,4 @@ def __main__():
     aggregate_delegations('undelegations', timeframe='hour')
     return
 
-#__main__()
+__main__()
