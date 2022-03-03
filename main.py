@@ -3,6 +3,7 @@ import json
 import time
 import pandas as pd
 import warnings
+from datetime import datetime
 
 warnings.filterwarnings("ignore")
 
@@ -45,8 +46,9 @@ def aggregate_delegators(operator_address, max_delegators, operator_name='chorus
 
         last_fetch = len(delegator_frame)
         time.sleep(0.3)
-        
-    delegator_frame.to_csv(operator_name+file_n, index=False)
+
+    timestamp = datetime.strftime(datetime.utcnow(), "%s")
+    delegator_frame.to_csv('./data/'+timestamp+'_'+operator_name+file_n, index=False)
 
 
 def __main__():
@@ -60,10 +62,9 @@ def __main__():
     validator_stats = validator_stats.reset_index(drop=True)
     validator_stats.to_csv('all_validators.csv', index=False)
 
-    validator_stats = validator_stats[:20]
+    validator_stats = validator_stats[137:140]
     for index, val in validator_stats.iterrows():
         print('Fetching delegator data for..', val['title'])
         aggregate_delegators(val['operator_address'], val['delegators'], operator_name=val['title'])
-
 
 __main__()
