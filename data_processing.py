@@ -41,3 +41,30 @@ def staked_with_others(validator, delegators, validators_df):
                     staked_df.loc[staked_df[validator + '_delegator'] == de, peer + '_since'] = validators_df.loc[validators_df[peer + '_delegator'] == de, peer + '_since'].values[0]
                     staked_df.loc[staked_df[validator + '_delegator'] == de, peer + '_delta'] = validators_df.loc[validators_df[peer + '_delegator'] == de, peer + '_delta'].values[0]
     return staked_df
+
+
+def fetch_delegator_range(validator, validators_df, simple_range=None):
+    delegators_range = {}
+    validator_df = validators_df[[col for col in validators_df.columns if validator in col]]
+    validator_df = validator_df.dropna()
+
+    if simple_range is not None:
+        delegators_range[str(simple_range[0]) + '_' + str(simple_range[1])] = list(validator_df[(validator_df[
+                                                                                     validator + '_amount'] <= simple_range[1]) & (
+                                                                                            validator_df[
+                                                                                                validator + '_amount'] > simple_range[0])][
+                                                                       validator + '_delegator'].unique())
+        return delegators_range
+
+    range = (0.01, 10000000)
+    max_range = range[0]
+    min_range = 0.0
+
+    while max_range <= range[1]:
+        delegators_range[str(min_range)+'_'+str(max_range)] = list(validator_df[(validator_df[validator+'_amount'] <= max_range) & (validator_df[validator+'_amount'] > min_range)][validator+'_delegator'].unique())#.values)
+        min_range = max_range
+        max_range *= 10
+    return delegators_range
+
+#validators_df = load_data()
+#print(fetch_delegator_range('Chorus One', validators_df, simple_range=[100, 110]))
