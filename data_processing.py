@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 
 def list_validators_fetched(path='./data/', chain='atom'):
@@ -66,5 +67,75 @@ def fetch_delegator_range(validator, validators_df, simple_range=None):
         max_range *= 10
     return delegators_range
 
-#validators_df = load_data()
-#print(fetch_delegator_range('Chorus One', validators_df, simple_range=[100, 110]))
+
+def staked_by_validator(validator):
+    validators_df = load_data()
+    validator_df = validators_df[[col for col in validators_df.columns if validator in col]]
+
+    range = (0.01, 10000000)
+    max_range = range[0]
+    min_range = 0.0
+
+    dash_dict = []
+    while max_range <= range[1]:
+        validator_df_snap = validator_df.loc[(validator_df[validator + '_amount'] <= max_range) & (
+                    validator_df[validator + '_amount'] > min_range)].reset_index(drop=True)
+        min_range = max_range
+        max_range *= 10
+
+        sum_staked = round(np.sum(validator_df_snap[validator + '_amount']), 2)
+        num_addresses = len(validator_df_snap)
+        dash_dict.append({'ATOM Range': str(min_range) + ' to ' + str(max_range), '# Addresses': num_addresses,
+                          'Total ATOM': sum_staked, 'Stake share (%)': sum_staked, 'Address share (%)': num_addresses})
+
+    total_staked = round(sum(item['Total ATOM'] for item in dash_dict), 2)
+    total_addresses = sum(item['# Addresses'] for item in dash_dict)
+    dash_dict.append({'ATOM Range': 'TOTAL', '# Addresses': total_addresses, 'Total ATOM': total_staked,
+                      'Stake share (%)': total_staked, 'Address share (%)': total_addresses})
+
+    cumulative_total = 0
+    for d in dash_dict:
+        cumulative_total += d['Total ATOM']
+        d['Cumulative Total'] = cumulative_total
+        d.update((k, round((v / total_staked) * 100, 2)) for k, v in d.items() if k == "Stake share (%)")
+        d.update((k, round((v / total_addresses) * 100, 2)) for k, v in d.items() if k == "Address share (%)")
+    # dash_dict = sorted(dash_dict, key=lambda d: d['Stake share (%)'], reverse=True)
+    return dash_dict
+
+
+def staked_by_validators():
+    validators = list_validators_fetched()
+
+    df = pd.DataFrame(columns=['Validator', 'ATOM Range', 'Cumulative Total'])
+    for val in list(validators.keys()):
+        d = pd.DataFrame.from_dict(staked_by_validator(val))
+        d.insert(0, 'Validator', val)
+        df = df.append(d, ignore_index=True)
+    return df
+
+
+def crossdelegations(minimum, maximum, validator):
+    validators_df = load_data()
+    validators = list_validators_fetched()
+
+    delegators_range = fetch_delegator_range(validator, validators_df, simple_range=[minimum, maximum])
+
+    for key in delegators_range.keys():
+        staked_df = staked_with_others(validator, delegators_range[key], validators_df)
+
+        dash_dict = []
+        for val in validators:
+            unique_delegators = len(staked_df.loc[staked_df[val + '_delegator'] != 0])
+            total_staked = int(np.sum(staked_df[val + '_amount']))
+            average_staked = int(total_staked / max(unique_delegators, 1))
+            average_stake_since = int(np.sum(staked_df[val + '_since'])) / max(unique_delegators, 1)
+
+            dash_dict.append({'Validator': val, 'Delegators': unique_delegators, 'Total staked': total_staked,
+                              'Average staked': average_staked,
+                              'Average date staked': datetime.fromtimestamp(average_stake_since).strftime('%Y-%m-%d')})
+
+        print('FINISHED')
+        dash_dict = sorted(dash_dict, key=lambda d: d['Total staked'], reverse=True)
+        val_index = next((index for (index, d) in enumerate(dash_dict) if d["Validator"] == validator), None)
+        dash_dict.insert(0, dash_dict.pop(val_index))
+        return dash_dict
