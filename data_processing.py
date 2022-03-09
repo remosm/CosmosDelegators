@@ -1,7 +1,10 @@
 import os
 import pandas as pd
 import numpy as np
+import warnings
 from datetime import datetime
+
+warnings.filterwarnings("ignore")
 
 
 def list_validators_fetched(path='./data/', chain='atom'):
@@ -94,23 +97,30 @@ def staked_by_validator(validator):
                       'Stake share (%)': total_staked, 'Address share (%)': total_addresses})
 
     cumulative_total = 0
+    cumulative_delegators = 0
     for d in dash_dict:
-        cumulative_total += d['Total ATOM']
-        d['Cumulative Total'] = cumulative_total
         d.update((k, round((v / total_staked) * 100, 2)) for k, v in d.items() if k == "Stake share (%)")
         d.update((k, round((v / total_addresses) * 100, 2)) for k, v in d.items() if k == "Address share (%)")
-    # dash_dict = sorted(dash_dict, key=lambda d: d['Stake share (%)'], reverse=True)
+        if d['ATOM Range'] == 'TOTAL':
+            continue
+        cumulative_total += d['Total ATOM']
+        cumulative_delegators += d['# Addresses']
+        d['Cumulative Addresses'] = cumulative_delegators
+        d['Cumulative Total'] = cumulative_total
     return dash_dict
 
 
-def staked_by_validators():
+def staked_by_validators(drop_total=False):
     validators = list_validators_fetched()
 
-    df = pd.DataFrame(columns=['Validator', 'ATOM Range', 'Cumulative Total'])
+    df = pd.DataFrame(columns=['Validator', 'ATOM Range', 'Cumulative Total', 'Cumulative Addresses'])
     for val in list(validators.keys()):
         d = pd.DataFrame.from_dict(staked_by_validator(val))
         d.insert(0, 'Validator', val)
         df = df.append(d, ignore_index=True)
+
+    if drop_total:
+        df = df[df["ATOM Range"].str.contains("TOTAL")==False]
     return df
 
 
@@ -134,7 +144,6 @@ def crossdelegations(minimum, maximum, validator):
                               'Average staked': average_staked,
                               'Average date staked': datetime.fromtimestamp(average_stake_since).strftime('%Y-%m-%d')})
 
-        print('FINISHED')
         dash_dict = sorted(dash_dict, key=lambda d: d['Total staked'], reverse=True)
         val_index = next((index for (index, d) in enumerate(dash_dict) if d["Validator"] == validator), None)
         dash_dict.insert(0, dash_dict.pop(val_index))

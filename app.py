@@ -1,8 +1,9 @@
-import pandas as pd
 import dash_daq as daq
 from dash import Dash, dash_table, html, dcc
 from dash.dependencies import Input, Output
 import plotly.express as px
+import plotly.graph_objects as go
+
 
 import data_processing
 
@@ -18,22 +19,16 @@ app.layout = html.Div([
     *Work in progress - a notepad. Not exhaustive or finalized. Yet undiscovered biases possible.*
     * A table showing relative cross-validator staking allocations, based on a validator.  
     * A table showing the distribution of stakes across stake accounts, for a validator of choice. 
-    * A graph showing the distribution of stakes across stake accounts, for a validator of choice, for all validators.
+    * A reactive line graph showing the distribution of stakes across stake accounts, for all validators.
+    * A reactive histogram showing the distribution of delegator addresses across stake accounts, for all validators.
     #### How do delegators of a given size, for a validator, stake with other validators?
     **Instructions:**
     * Select a validator from the dropdown. The script will fetch all delegator addresses staked with this validator.
     * Define a range by selecting a minimum and maximum. The script will filter delegator addresses by staked amount, accordingly.
     * &rarr; The script will fetch & describe the delegations to other delegators for these addresses.
-      
-    **Sample questions** 
-    * What relative share of their staking allocations do delegators trust us with, on average?
-    * When to delegators start staking with a given validator on average (danger: survivorship bias. Informative, but wouldn't publish.)?
-    * &rarr; What distinguishes Chorus? We could have a relatively higher average stake, for a range. We could also have relatively more delegators, with a lower stake on average (*'the people's validator'*).
-    * What share of their portfolio do delegators typically stake / entrust to specific validators? (Not covered yet; would need to fetch by-account data.)
-    * How many validators do delegators stake with on average? (Not covered yet; would need to run on a by-account basis)
     
+    *The table may take up to a minute to load, depending on the range covered. Usually, it will be much quicker. Check the tab icon to track status.*  
     
-    *The table may take up to a minute to load, depending on the range covered. Usually, it will be much quicker. Check the tab icon to track status.*
     '''),
     dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown_comparison'),
     daq.NumericInput(
@@ -59,7 +54,8 @@ app.layout = html.Div([
         **Instructions**
         * Select a validator from the dropdown. The script will display statistics for this validator.
 
-        *The table should update within max. 5 seconds.*
+        *The table should update within max. 5 seconds.*  
+        
         '''),
     dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown'),
      dash_table.DataTable(
@@ -67,11 +63,21 @@ app.layout = html.Div([
         data=[]
     ),
     dcc.Markdown('''
-        #### Relative distribution accross validators.  
+        #### Relative stake distribution across validators.  
+        **Instructions**
+        * Select validators to display on the graph's sidebar.  
         
         *The Graph may take up to 30s to load.*
         '''),
     dcc.Graph(id='staked_by_figure'),
+    dcc.Markdown('''
+        #### Relative address distribution across validators. 
+        **Instructions**
+        * Select validators to display on the graph's sidebar.  
+
+        *The Graph may take up to 30s to load.*
+        '''),
+    dcc.Graph(id='staked_by_address'),
 ])
 
 @app.callback(
@@ -97,10 +103,29 @@ def staked_by_validator_table(validator):
     Input('validator_dropdown', 'value'),
 )
 def staked_by_validators_figure(dummy_input):
-    df = data_processing.staked_by_validators()
+    df = data_processing.staked_by_validators(drop_total=True)
     fig = px.line(df, x='ATOM Range', y='Cumulative Total', color='Validator')
+    return fig
+
+
+@app.callback(
+    Output('staked_by_address', 'figure'),
+    Input('validator_dropdown', 'value'),
+)
+def staked_by_validators_figure(dummy_input):
+    df = data_processing.staked_by_validators(drop_total=True)
+    fig = px.histogram(df, x="ATOM Range", y="# Addresses", color="Validator", text_auto=True)#px.line(df, x='ATOM Range', y='Cumulative Addresses', color='Validator')
     return fig
 
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+"""
+    **Sample questions** 
+    * What relative share of their staking allocations do delegators trust us with, on average?
+    * When to delegators start staking with a given validator on average (danger: survivorship bias. Informative, but wouldn't publish.)?
+    * &rarr; What distinguishes Chorus? We could have a relatively higher average stake, for a range. We could also have relatively more delegators, with a lower stake on average (*'the people's validator'*).
+    * What share of their portfolio do delegators typically stake / entrust to specific validators? (Not covered yet; would need to fetch by-account data.)
+    * How many validators do delegators stake with on average? (Not covered yet; would need to run on a by-account basis)
+"""
