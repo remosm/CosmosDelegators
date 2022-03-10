@@ -21,47 +21,18 @@ app.layout = html.Div([
     * A table showing the distribution of stakes across stake accounts, for a validator of choice. 
     * A reactive line graph showing the distribution of stakes across stake accounts, for all validators.
     * A reactive histogram showing the distribution of delegator addresses across stake accounts, for all validators.
-    #### How do delegators of a given size, for a validator, stake with other validators?
-    **Instructions:**
-    * Select a validator from the dropdown. The script will fetch all delegator addresses staked with this validator.
-    * Define a range by selecting a minimum and maximum. The script will filter delegator addresses by staked amount, accordingly.
-    * &rarr; The script will fetch & describe the delegations to other delegators for these addresses.
-    
-    *The table may take up to a minute to load, depending on the range covered. Usually, it will be much quicker. Check the tab icon to track status.*  
-    
+    * A scatter plot showing # delegations and total stake for all validators. Optionally: a clustering algorithm superimposed.
     '''),
-    dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown_comparison'),
-    daq.NumericInput(
-        id='min_atom',
-        label='Minimum ATOM staked',
-        min=0,
-        max=10000000,
-        value=500
-    ),
-   daq.NumericInput(
-        id='max_atom',
-        label='Maximum ATOM staked',
-        min=0,
-        max=10000000,
-        value=1000
-    ),
-    dash_table.DataTable(
-        id='table',
-        data=[]
-    ),
     dcc.Markdown('''
-        #### What is the relative distribution of stake sizes vs. total staked?
+        #### Validator clusters by stake and # of addresses. 
         **Instructions**
-        * Select a validator from the dropdown. The script will display statistics for this validator.
+        * Select validators to display on the graph's sidebar.  
+        * Press the button to superimpose a basic clustering algorithm.
 
-        *The table should update within max. 5 seconds.*  
-        
+        *The Graph may take up to 1m to load.*
         '''),
-    dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown'),
-     dash_table.DataTable(
-        id='staked_by_table',
-        data=[]
-    ),
+    html.Button('K-means clustering', id='cluster_button', n_clicks=0),
+    dcc.Graph(id='aggregate_staked_delegators_fig'),
     dcc.Markdown('''
         #### Relative stake distribution across validators.  
         **Instructions**
@@ -78,6 +49,47 @@ app.layout = html.Div([
         *The Graph may take up to 30s to load.*
         '''),
     dcc.Graph(id='staked_by_address'),
+    dcc.Markdown('''
+    #### How do delegators of a given size, for a validator, stake with other validators?
+    **Instructions:**
+    * Select a validator from the dropdown. The script will fetch all delegator addresses staked with this validator.
+    * Define a range by selecting a minimum and maximum. The script will filter delegator addresses by staked amount, accordingly.
+    * &rarr; The script will fetch & describe the delegations to other delegators for these addresses.
+
+    *The table may take up to a minute to load, depending on the range covered. Usually, it will be much quicker. Check the tab icon to track status.*  
+    '''),
+    dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown_comparison'),
+    daq.NumericInput(
+        id='min_atom',
+        label='Minimum ATOM staked',
+        min=0,
+        max=10000000,
+        value=500
+    ),
+    daq.NumericInput(
+        id='max_atom',
+        label='Maximum ATOM staked',
+        min=0,
+        max=10000000,
+        value=1000
+    ),
+    dash_table.DataTable(
+        id='table',
+        data=[]
+    ),
+    dcc.Markdown('''
+        #### What is the relative distribution of stake sizes vs. total staked?
+        **Instructions**
+        * Select a validator from the dropdown. The script will display statistics for this validator.
+
+        *The table should update within max. 5 seconds.*  
+
+        '''),
+    dcc.Dropdown(validator_list, 'Chorus One', id='validator_dropdown'),
+    dash_table.DataTable(
+        id='staked_by_table',
+        data=[]
+    ),
 ])
 
 @app.callback(
@@ -103,7 +115,7 @@ def staked_by_validator_table(validator):
     Input('validator_dropdown', 'value'),
 )
 def staked_by_validators_figure(dummy_input):
-    df = data_processing.staked_by_validators(drop_total=True)
+    df = data_processing.staked_by_validators(drop_total=True, load_csv=True)
     fig = px.line(df, x='ATOM Range', y='Cumulative Total', color='Validator')
     return fig
 
@@ -113,9 +125,23 @@ def staked_by_validators_figure(dummy_input):
     Input('validator_dropdown', 'value'),
 )
 def staked_by_validators_figure(dummy_input):
-    df = data_processing.staked_by_validators(drop_total=True)
-    fig = px.histogram(df, x="ATOM Range", y="# Addresses", color="Validator", text_auto=True)#px.line(df, x='ATOM Range', y='Cumulative Addresses', color='Validator')
+    df = data_processing.staked_by_validators(drop_total=True, load_csv=True)
+    fig = px.histogram(df, x="ATOM Range", y="# Addresses", color="Validator", text_auto=True)#
     return fig
+
+@app.callback(
+    Output('aggregate_staked_delegators_fig', 'figure'),
+    Input('cluster_button', 'n_clicks'),
+)
+def staked_by_validators_figure(k_means):
+    color = 'Validator'
+    if k_means %2 != 0:
+        color = 'Labels'
+    df = data_processing.aggregate_staked_by_validators(load_csv=True)
+    fig = px.scatter(x=df['Total Addresses'], y=df['Total Staked'], color=df[color], text=df['Validator'])
+    fig.update_traces(textposition="top center", marker=dict(size=18))
+    return fig
+
 
 
 if __name__ == '__main__':

@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import warnings
 from datetime import datetime
+from sklearn import datasets, cluster
+
 
 warnings.filterwarnings("ignore")
 
@@ -110,7 +112,24 @@ def staked_by_validator(validator):
     return dash_dict
 
 
-def staked_by_validators(drop_total=False):
+def k_means_labelling(df):
+    df = df.dropna()
+    cluster_df = df.drop(['Validator'], axis=1)
+    kmeans = cluster.KMeans(random_state=10).fit(cluster_df)
+    df['Labels'] = kmeans.labels_
+    return df
+
+
+def staked_by_validators(drop_total=False, load_csv=False):
+    if load_csv:
+        try:
+            df = pd.read_csv('./data/cache/staked_by_validators.csv')
+            if drop_total:
+                df = df[df["ATOM Range"].str.contains("TOTAL") == False]
+            return df
+        except FileNotFoundError:
+            print('No cache found.')
+
     validators = list_validators_fetched()
 
     df = pd.DataFrame(columns=['Validator', 'ATOM Range', 'Cumulative Total', 'Cumulative Addresses'])
@@ -119,10 +138,31 @@ def staked_by_validators(drop_total=False):
         d.insert(0, 'Validator', val)
         df = df.append(d, ignore_index=True)
 
+    df.to_csv('./data/cache/staked_by_validators.csv', index=False)
     if drop_total:
         df = df[df["ATOM Range"].str.contains("TOTAL")==False]
     return df
 
+
+def aggregate_staked_by_validators(load_csv=False):
+    if load_csv:
+        try:
+            df = pd.read_csv('./data/cache/aggregate_staked_by_validators.csv')
+            return df
+        except FileNotFoundError:
+            print('No cache found.')
+    staked_df = staked_by_validators(drop_total=True)
+    validators = list_validators_fetched()
+
+    df = pd.DataFrame(columns=['Validator', 'Total Staked', 'Total Addresses'])
+    for val in validators:
+        sum_staked = staked_df.loc[staked_df['Validator'] == val]['Cumulative Total'].iloc[-1]
+        sum_addresses = staked_df.loc[staked_df['Validator'] == val]['Cumulative Addresses'].iloc[-1]
+
+        df.loc[len(df)] = [val, sum_staked, sum_addresses]
+    df = k_means_labelling(df)
+    df.to_csv('./data/cache/aggregate_staked_by_validators.csv', index=False)
+    return df
 
 def crossdelegations(minimum, maximum, validator):
     validators_df = load_data()
